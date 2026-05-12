@@ -1,0 +1,241 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  <meta http-equiv="Content-Style-Type" content="text/css">
+  <title>ENROUTE : Setup Guideline</title>
+
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Calibri, sans-serif; max-width: 880px; margin: 40px auto; padding: 0 24px; color: #1a1a1a; line-height: 1.6; }
+  h1 { color: #1a56db; border-bottom: 2px solid #1a56db; padding-bottom: 8px; }
+  h2 { color: #1a56db; margin-top: 32px; }
+  h3 { color: #333; margin-top: 24px; }
+  code, pre { background: #f4f4f5; border-radius: 6px; font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace; font-size: 13px; }
+  pre { padding: 16px; overflow-x: auto; border: 1px solid #e4e4e7; }
+  code { padding: 2px 6px; }
+  pre code { padding: 0; background: none; }
+  table { border-collapse: collapse; width: 100%; margin: 16px 0; }
+  th, td { border: 1px solid #d4d4d8; padding: 10px 14px; text-align: left; }
+  th { background: #f4f4f5; font-weight: 600; }
+  .meta { color: #666; font-style: italic; }
+  .note { background: #fef9e7; border-left: 4px solid #f5a623; padding: 12px 16px; margin: 16px 0; border-radius: 4px; }
+  .note strong { color: #b8860b; }
+</style>
+
+</head>
+<body>
+<h2>Enroute : Claude Code ➜ LiteLLM Proxy ➜ NVIDIA NIM ( Free API Endpoints )</h2>
+<p><strong>Overview</strong>:
+<br>LiteLLM serves as a translation gateway. It receives Anthropic-format requests from Claude Code (/v1/messages), translates them to OpenAI chat-completions format, and forwards them to NVIDIA’s NIM API.
+<br><br>This document provides a step‑by‑step guide for installing and configuring LiteLLM, setting up the environment, and enabling Claude Code. All commands are provided as‑is; copy them verbatim.</p>
+
+<div class="section">
+<h2>1. Prerequisites</h2>
+<ul>
+  <li>Python 3.12+ (recommended)</li>
+  <li><code>uv</code> package manager for isolated installations</li>
+  <li>MacOS / Guest OS of VirtualBuddy (tested on version 26.3)</li>
+</ul>
+</div>
+
+<div class="section">
+<h2>2. Install LiteLLM</h2>
+<p>This installs LiteLLM with proxy support, which will be used as the backend for Claude Code.</p>
+<pre>uv tool install 'litellm[proxy]'</pre>
+</div>
+
+<div class="section">
+<h2>3. Configure Environment Variables ( $HOME/.zshrc )</h2>
+<p>Add the following lines to <code>~/.zshrc</code> file and then reload the shell (<code>source ~/.zshrc</code>).</p>
+<pre>export LITELLM_USE_CHAT_COMPLETIONS_URL_FOR_ANTHROPIC_MESSAGES=true
+export LITELLM_BASE_URL="http://127.0.0.1:4000"
+export LITELLM_MASTER_KEY="freecc"
+
+export NVIDIA_NIM_API_KEY="&lt;nvapi-YOUR_KEY&gt;"
+export NVIDIA_NIM_BASE_URL="https://integrate.api.nvidia.com/v1"
+export OPENROUTER_API_KEY="&lt;sk-or-YOUR_KEY&gt;"
+export OPENROUTER_BASE_URL="https://openrouter.ai/api/v1"
+
+export ANTHROPIC_BASE_URL="$LITELLM_BASE_URL"
+export ANTHROPIC_AUTH_TOKEN="$LITELLM_MASTER_KEY"
+export ANTHROPIC_API_KEY=""
+export ANTHROPIC_DEFAULT_OPUS_MODEL="deepseek-v4-flash"
+export ANTHROPIC_DEFAULT_SONNET_MODEL="qwen3.5-122b-a10b"
+export ANTHROPIC_DEFAULT_HAIKU_MODEL="gemma-4-31b-it"
+export CLAUDE_CODE_SUBAGENT_MODEL="qwen3.5-122b-a10b"
+</pre>
+<p>After editing, reload the shell:</p>
+<pre>source ~/.zshrc</pre>
+</div>
+
+<div class="section">
+<h2>4. Configure $HOME/litellm_config.yaml</h2>
+<pre>model_list:
+  - model_name: deepseek-v4-flash
+    litellm_params:
+      model: nvidia_nim/deepseek-ai/deepseek-v4-flash
+      api_base: os.environ/NVIDIA_NIM_BASE_URL
+      api_key: os.environ/NVIDIA_NIM_API_KEY
+      rpm: 40 # Requests per minute
+  - model_name: qwen3.5-122b-a10b
+    litellm_params:
+      model: nvidia_nim/qwen/qwen3.5-122b-a10b
+      api_base: os.environ/NVIDIA_NIM_BASE_URL
+      api_key: os.environ/NVIDIA_NIM_API_KEY
+      rpm: 40
+  - model_name: gemma-4-31b-it
+    litellm_params:
+      model: openrouter/google/gemma-4-31b-it:free
+      api_base: os.environ/OPENROUTER_BASE_URL
+      api_key: os.environ/OPENROUTER_API_KEY
+      rpm: 20
+  - model_name: default
+    litellm_params:
+      model: nvidia_nim/openai/gpt-oss-120b
+      api_base: os.environ/NVIDIA_NIM_BASE_URL
+      api_key: os.environ/NVIDIA_NIM_API_KEY
+      rpm: 40
+  - model_name: billable
+    litellm_params:
+      model: openrouter/deepseek/deepseek-v4-flash
+      api_base: os.environ/OPENROUTER_BASE_URL
+      api_key: os.environ/OPENROUTER_API_KEY
+      rpm: 40
+
+litellm_settings:
+  drop_params: true
+  use_chat_completions_url_for_anthropic_messages: true
+
+general_settings:
+  master_key: "freecc"
+
+router_settings:
+  fallbacks:
+    - "deepseek-v4-flash": ["qwen3.5-122b-a10b", "gemma-4-31b-it", "default", "billable"]
+    - "qwen3.5-122b-a10b": ["gemma-4-31b-it", "default", "billable"]
+    - "gemma-4-31b-it": ["default", "billable"]
+    - "default": ["billable"]
+</pre>
+</div>
+
+<div class="section">
+<h2>5. Create Startup Wrapper Script ( $HOME/Start_litellm.sh )</h2>
+<pre>#!/bin/bash
+source ~/.zshrc
+export LITELLM_USE_CHAT_COMPLETIONS_URL_FOR_ANTHROPIC_MESSAGES=true
+
+HOST="${${LITELLM_BASE_URL##*://}%:*}"
+PORT="${LITELLM_BASE_URL##*:}"
+
+exec /Users/vmm4/.local/bin/litellm \
+  --config "$HOME"/litellm_config.yaml \
+  --host "$HOST" --port "$PORT" \
+  --model default "$@"
+</pre>
+<p>Make it executable:</p>
+<pre>chmod +x "$HOME"/start_litellm.sh</pre>
+</div>
+
+<div class="section">
+<h2>6. Auto‑Start on macOS (Automator Application)</h2>
+<ol>
+  <li>Open <strong>Automator</strong> → <strong>New Application</strong>.</li>
+  <li>Add a <strong>Run Shell Script</strong> action with the following content:</li>
+  <li>Select the Shell: choose <strong>/bin/bash</strong></li> 
+</ol>
+<pre>export PATH="$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
+export LITELLM_USE_CHAT_COMPLETIONS_URL_FOR_ANTHROPIC_MESSAGES=true
+exec "$HOME"/start_litellm.sh &gt;&gt; "/var/log/litellm_$(date +%Y-%m-%d).log" 2&gt;&amp;1 &amp;</pre>
+<ol start="4"><li>File → Save the Automator app as $HOME/<strong>Startup_LiteLLM.app</strong> and add it to <strong>System Settings → General → Login Items</strong>.</li></ol>
+<ol start="5"><li><strong>Reboot</strong> the host and verify startup /var/log/litellm_(today).log </li></ol>
+</div>
+
+<div class="section">
+<h2>7. Verify the Setup</h2>
+<ol><li>OpenAI‑style test:</li></ol>
+<pre>curl -X POST 'http://127.0.0.1:4000/chat/completions' \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $LITELLM_MASTER_KEY" \
+  -d '{"model":"gpt-oss-120b","messages":[{"role":"user","content":"hello"}]}'
+</pre>
+<ol start="2"><li>LiteLLM models health check:</li></ol>
+<pre>curl http://127.0.0.1:4000/health -H "Authorization: Bearer $LITELLM_MASTER_KEY"
+</pre>
+<ol start="3"><li>Anthropic‑style test (used by Claude Code):</li></ol>
+<pre>curl -X POST http://127.0.0.1:4000/v1/messages \
+  -H "Authorization: Bearer $LITELLM_MASTER_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"model":"gpt-oss-120b","max_tokens":50,"messages":[{"role":"user","content":"hello"}]}'
+</pre>
+<ol start="4"><li>Bash commands to <strong>List</strong>, <strong>Stop</strong> and <strong>Restart</strong> automator's app ( Startup_LiteLLM.app ):</li></ol>
+<pre>lsof -t -i :"${LITELLM_BASE_URL##*:}" -sTCP:LISTEN  			# LIST (PID)
+kill -9 $(lsof -t -i :"${LITELLM_BASE_URL##*:}" -sTCP:LISTEN)  		# STOP (PID)
+osascript -e 'quit app "Startup_LiteLLM"' && open -a Startup_LiteLLM	# RESTART
+</pre>
+</div>
+
+<div class="section">
+<h2>8. Install &amp; Configure Claude Code</h2>
+<ol>
+  <li>Install the CLI globally:</li>
+</ol>
+<pre>npm install -g @anthropic-ai/claude-code</pre>
+<ol start="2">
+  <li>Navigate to workspace/projects folder:</li>
+</ol>
+<pre>cd ~/obsivault/projects</pre>
+<ol start="3">
+  <li>Start Claude Code with the desired model (e.g., default):</li>
+</ol>
+<pre>claude --model default</pre>
+<ol start="4">
+  <li>Change the model inside Claude Code as needed:</li>
+</ol>
+<pre>/model &lt;model name from LiteLLM gateway&gt;</pre>
+<ol start="5">
+  <li>Start a new session or clear the context:</li>
+</ol>
+<pre>/new OR /clear</pre>
+</div>
+
+<div class="section">
+<h2>9. Troubleshooting</h2>
+<ul>
+  <li><strong>404 on /v1/messages</strong> – Ensure <code>environment variable</code> is set before LiteLLM starts.</li>
+  <br>*** LiteLLM’s /v1/messages endpoint (Anthropic format, which Claude Code uses) routes OpenAI-provider models through the Responses API by default. NVIDIA doesn’t have a Responses API, so requests return 404.   &nbsp; &nbsp; Setting <code>export LITELLM_USE_CHAT_COMPLETIONS_URL_FOR_ANTHROPIC_MESSAGES=true</code> forces LiteLLM to translate Anthropic messages → OpenAI chat completions format instead, which NVIDIA does support. ***
+  <br><br><li><strong>Authentication errors</strong> – Replace placeholder keys with real values in both <code>~/litellm_config.yaml</code> and <code>~/.zshrc</code>.</li>
+  <li><strong>Login item runs without env vars</strong> – Always launch via the wrapper script created in step 5.</li>
+</ul>
+</div>
+<h2>10. File Reference</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>File</th>
+      <th>Purpose</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>~/.zshrc</code></td>
+      <td>All env vars (NVIDIA key, LiteLLM gateway, model overrides)</td>
+    </tr>
+    <tr>
+      <td><code>litellm_config.yaml</code></td>
+      <td>Model list, master_key, fallbacks</td>
+    </tr>
+    <tr>
+      <td><code>start_litellm.sh</code></td>
+      <td>Wrapper that sets <code>LITELLM_USE_CHAT_COMPLETIONS_URL_FOR_ANTHROPIC_MESSAGES</code> then launches litellm</td>
+    </tr>
+    <tr>
+      <td><code>Startup_LiteLLM.app</code></td>
+      <td>macOS Login Item (Automator app that runs <code>start_litellm.sh</code> on login)</td>
+    </tr>
+  </tbody>
+</table>
+
+
+</body>
+</html>
