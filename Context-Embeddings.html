@@ -155,7 +155,7 @@ top_chunks = [chunks[i] for i in I[0]]
             </li>
             <li>
                 <strong>Response & Post-Processing</strong><br>
-                The model response is streamed or returned, then <strong>post-processed</strong> (e.g., stripping safety tags) before being displayed to the user. The assistant’s answer is embedded (store‑right) in a background thread so it does not block the UI. Dense vector is added to the index.
+                The model response is streamed or returned, then <strong>post-processed</strong> (e.g., stripping safety tags) before being displayed to the user. The assistant’s answer is embedded asynchronously (store‑right) in a background thread to avoid blocking the UI. The resulting dense vector is then added to the vector index.
                 <pre><code>def clean_response(text: str) -> str:
     for fn in (strip_openai_tags,
                strip_anthropic_prefixes,
