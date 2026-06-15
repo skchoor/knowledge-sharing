@@ -99,7 +99,7 @@ chunks = chunk_text(content, max_chars=200, overlap=40)
             </li>
             <li>
                 <strong>Embedding</strong><br>
-                Each chunk is sent to an embedding model, which returns a <strong>dense vector</strong> (a numerical float array) representing the data point in vector space.
+                Each chunk is sent to an embedding model, which returns a <strong>dense vector</strong> ( a numerical array of floating-point values ) representing an abstraction of a data point in vector space.
                 <pre><code>ollama run qwen3-embedding "Exact date of CNY year 2026?"
 # Returns a dense vector, e.g.:
 [
