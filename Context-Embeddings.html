@@ -112,7 +112,7 @@ chunks = chunk_text(content, max_chars=200, overlap=40)
             </li>
             <li>
                 <strong>Storage & Indexing</strong><br>
-                Vectors are written to a <strong>Vector DB</strong> alongside the raw chunk text (or a reference). The DB builds an <strong>Approximate Nearest-Neighbor (ANN)</strong> index over these entries, making them persistent and searchable.
+                Vectors are written to a <strong>Vector DB</strong> alongside the raw chunk text (or a reference). The DB builds an <strong>Approximate Nearest-Neighbor (ANN)</strong> index over these entries, making them persistent and searchable. 
                 <pre><code>import faiss, numpy as np
 dim = len(vectors[0])   # dimension of qwen3‑embedding / 2560
 index = faiss.IndexFlatL2(dim)
@@ -121,7 +121,7 @@ index.add(np.array(vectors).astype('float32'))
             </li>
             <li>
                 <strong>Retrieval</strong><br>
-                For a new query, the engine performs a <strong>top-K Nearest-Neighbor search</strong>, retrieving the most semantically similar chunks based on vector distance (e.g., cosine similarity).
+                For a new query, the engine performs a <strong>top-K Nearest-Neighbor search</strong>, retrieving the most semantically similar chunks based on vector distance (e.g., cosine similarity). Because embeddings represent semantic meaning in a vector space, the retrieval process can identify conceptually related chunks even when different vocabulary is used.
                 <pre><code>query_vec = np.array(json.loads(embed(user_query)), dtype='float32')
 
 # D=similarities, I=indices, k=neighbours
@@ -165,7 +165,7 @@ top_chunks = [chunks[i] for i in I[0]]
     # Collapse multiple spaces / newlines to a single space for neatness
     return re.sub(r"\s+", " ", text).strip()
 </code></pre>
-                <br>Other common post‑processing steps:
+                <br>Other common post‑processing steps include:
                 <br>[✓] Strip provider‑specific safety tags.
                 <br>[✓] Remove or whitelist HTML/markdown that could be unsafe.
                 <br>[✓] Extract a < TOOLS > {...} < /TOOLS > JSON block and hand it to the tool dispatcher.
